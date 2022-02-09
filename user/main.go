@@ -8,9 +8,12 @@ import (
 	"github.com/i6666/micro-go/user/endpoint"
 	"github.com/i6666/micro-go/user/redis"
 	rpc2 "github.com/i6666/micro-go/user/rpc"
+	rpc3 "github.com/i6666/micro-go/user/rpc/pbk"
 	"github.com/i6666/micro-go/user/service"
 	"github.com/i6666/micro-go/user/transport"
+	"google.golang.org/grpc"
 	"log"
+	"net"
 	"net/http"
 	"net/rpc"
 	"os"
@@ -23,6 +26,24 @@ func main() {
 
 	//microStart()
 
+	//goRpc()
+
+	flag.Parse()
+
+	l, err := net.Listen("tcp", "127.0.0.1:1234")
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+
+	server := grpc.NewServer()
+	loginService := new(service.LoginService)
+	rpc3.RegisterLoginServiceServer(server, loginService)
+
+	_ = server.Serve(l)
+
+}
+
+func goRpc() {
 	client, err := rpc.DialHTTP("tcp", "127.0.0.1:1234")
 
 	if err != nil {
@@ -31,6 +52,7 @@ func main() {
 	stringReq := rpc2.StringRequest{"A", "B"}
 
 	var reply string
+	//同步调用
 	err = client.Call("StringService.Concat", stringReq, &reply)
 
 	if err != nil {
@@ -38,7 +60,6 @@ func main() {
 	}
 
 	fmt.Println("==========>>>>>>>>" + reply)
-
 }
 
 func microStart() {
