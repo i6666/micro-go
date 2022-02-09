@@ -6,14 +6,51 @@ import (
 	"errors"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/transport"
+	"github.com/go-kit/kit/transport/grpc"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/gorilla/mux" // HTTP 请求的路由和分发器
 	"github.com/i6666/micro-go/user/endpoint"
+	rpc "github.com/i6666/micro-go/user/rpc/pbk"
 	"net/http"
 	"os"
 )
 
 var ErrorBadRequest = errors.New("invalid request parameter")
+
+type gRpcServer struct {
+	checkPassword grpc.Handler
+}
+
+func (s *gRpcServer) CheckPassword(ctx context.Context, r *rpc.LoginRequest) (*rpc.LoginResponse, error) {
+	_, resp, err := s.checkPassword.ServeGRPC(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	return resp.(*rpc.LoginResponse), nil
+}
+
+func NewUserServer(ctx context.Context, endpoints endpoint.UserEndpoints) rpc.LoginServiceServer {
+	return &gRpcServer{
+		checkPassword: grpc.NewServer(
+			endpoints.UserEndpoint,
+			DecodeLoginRequest,
+			EncodeLoginResponse,
+		),
+	}
+
+}
+func DecodeLoginRequest(ctx context.Context, r interface{}) (interface{}, error) {
+	req := r.(*rpc.LoginRequest)
+	return endpoint.LoginFrom{Email: req.Username, Password: req.Password}, nil
+}
+func EncodeLoginResponse(_ context.Context, r interface{}) (interface{}, error) {
+	result := r.(endpoint.LoginResult)
+	return &rpc.LoginResponse{
+		Ret: result.UserInfo.Username,
+		Err: result.Err.Error(),
+	}, nil
+
+}
 
 func MakeHttpHandler(ctx context.Context, endpoints *endpoint.UserEndpoints) http.Handler {
 	r := mux.NewRouter()

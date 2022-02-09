@@ -11,6 +11,7 @@ import (
 	rpc3 "github.com/i6666/micro-go/user/rpc/pbk"
 	"github.com/i6666/micro-go/user/service"
 	"github.com/i6666/micro-go/user/transport"
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"log"
 	"net"
@@ -20,6 +21,7 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
 )
 
 func main() {
@@ -28,6 +30,28 @@ func main() {
 
 	//goRpc()
 
+	//gRpc1()
+	flag.Parse()
+	ctx := context.Background()
+	var svc service.UserService
+	svc = service.MakeUserServiceImpl(&dao.UserDaoImpl{})
+
+	et := endpoint.MakeUserEndPoint(svc)
+	// 构造限流中间件
+	ratebucket := rate.NewLimiter(rate.Every(time.Second*1), 100)
+	et = endpoint.NewTokenBucketLimiterWithBuildIn(ratebucket)(et)
+	endpts := endpoint.UserEndpoints{
+		UserEndpoint: et,
+	}
+	// 使用 transport 构造 UserServiceServer
+	handle := transport.NewUserServer(ctx, endpts)
+	l, _ := net.Listen("tcp", "127.0.0.1:1234")
+	server := grpc.NewServer()
+	rpc3.RegisterLoginServiceServer(server, handle)
+	_ = server.Serve(l)
+}
+
+func gRpc1() {
 	flag.Parse()
 
 	l, err := net.Listen("tcp", "127.0.0.1:1234")
@@ -40,7 +64,6 @@ func main() {
 	rpc3.RegisterLoginServiceServer(server, loginService)
 
 	_ = server.Serve(l)
-
 }
 
 func goRpc() {
