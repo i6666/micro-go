@@ -31,6 +31,47 @@ func main() {
 	//goRpc()
 
 	//gRpc1()
+	//gRpc2()
+
+	instanceA := ServiceInstance{"A", 3, 0}
+	instanceB := ServiceInstance{"B", 2, 0}
+	instanceC := ServiceInstance{"C", 1, 0}
+
+	instances := [3]*ServiceInstance{&instanceA, &instanceB, &instanceC}
+	for i := 0; i < 6; i++ {
+		selectInstance(instances)
+	}
+
+}
+
+//平滑轮询算法
+func selectInstance(instances [3]*ServiceInstance) (best *ServiceInstance) {
+	total := 0
+
+	for i := 0; i < len(instances); i++ {
+		w := instances[i]
+		w.curWeight += w.Weight
+		total += w.Weight
+
+		if best == nil || w.curWeight > best.curWeight {
+			best = w
+		}
+	}
+
+	best.curWeight -= total
+
+	fmt.Println("best is ", best, "===========", instances[0], instances[1], instances[2])
+
+	return best
+}
+
+type ServiceInstance struct {
+	name      string
+	Weight    int
+	curWeight int
+}
+
+func gRpc2() {
 	flag.Parse()
 	ctx := context.Background()
 	var svc service.UserService
